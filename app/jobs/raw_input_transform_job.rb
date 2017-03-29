@@ -4,13 +4,14 @@ class RawInputTransformJob < ActiveJob::Base
     return unless import
     raw_input = import.raw_inputs.where(state: nil).first
 
-    if raw_input.nil?
-      SyncJob.perform_later
-      import.finish
-      return
-    else
-      RawInputChanges.apply raw_input
-      self.class.perform_later(import_id)
-    end
+    finish(import) && return if raw_input.nil?
+
+    RawInputChanges.apply raw_input
+    self.class.perform_later(import_id)
+  end
+
+  def finish(import)
+    SyncJob.perform_later
+    import.finish
   end
 end

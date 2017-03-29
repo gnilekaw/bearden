@@ -1,5 +1,3 @@
-# require 'csv'
-
 class SyncJob < ApplicationJob
   def perform
     Sync.apply
