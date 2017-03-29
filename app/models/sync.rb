@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/ClassLength
 # rubocop:disable Metrics/MethodLength
 require 'csv'
 
@@ -7,15 +8,17 @@ class Sync
   end
 
   def initialize
+    @bucket = ENV['AWS_BUCKET']
+    @region = ENV['AWS_REGION']
     @schema = 'bearden'
     @table = 'ranked'
     @schema_table = [@schema, @table].join('.')
     @file = file
-    @source = "s3://#{ENV['AWS_BUCKET']}/#{@file}"
+    @source = "s3://#{@bucket}/#{@file}"
   end
 
   def apply
-    export_csv
+    upload(export)
     sync_upstream
   end
 
@@ -28,7 +31,8 @@ class Sync
       truncate(conn)
       copy(conn)
     end
-  rescue PG::Error
+  rescue PG::Error => e
+    puts e
     return errors(connection)
   ensure
     connection&.close
@@ -70,11 +74,11 @@ class Sync
   def copy(conn)
     conn.exec(
       "COPY #{@schema_table} \
-      (#{columns})
+      (#{columns}) \
       FROM '#{@source}' \
       WITH CREDENTIALS '#{Redshift.s3_auth}' \
       DELIMITER ',' \
-      REGION '#{ENV['AWS_REGION']}' \
+      REGION '#{@region}' \
       CSV IGNOREHEADER 1 EMPTYASNULL"
     )
   end
@@ -95,22 +99,23 @@ class Sync
     CsvConverter.headers.join(',')
   end
 
-  # rubocop:disable Metrics/AbcSize
-  def export_csv
+  def export
     resolved = Organization.all.map(&OrganizationResolver.method(:resolve))
     converted = resolved.map(&CsvConverter.method(:convert))
     options = {
       headers: CsvConverter.headers,
       write_headers: true
     }
-    csv_data = CSV.generate(options) do |csv|
+    CSV.generate(options) do |csv|
       converted.each { |row| csv << row }
     end
-    s3 = Aws::S3::Resource.new
-    object = s3.bucket(ENV['AWS_BUCKET']).object(@file)
-    object.put acl: 'private', body: csv_data
   end
-  # rubocop:enable Metrics/AbcSize
+
+  def upload(data)
+    s3 = Aws::S3::Resource.new
+    object = s3.bucket(@bucket).object(@file)
+    object.put acl: 'private', body: data
+  end
 
   def file
     timestamp = Time.now.strftime('%F%T').gsub(/[^0-9a-z ]/i, '')
