@@ -25,25 +25,23 @@ class Sync
   private
 
   def sync_upstream
-    connection = Redshift.connect
-    build_schema(connection) unless table_exists(connection)
-    connection.transaction do |conn|
-      truncate(conn)
-      copy(conn)
-    end
+    @conn = Redshift.connect
+    build_schema unless table_exists
+    truncate
+    copy
   rescue PG::Error => e
     puts e
-    return errors(connection)
+    return errors
   ensure
-    connection&.close
+    @conn&.close
   end
 
-  def truncate(conn)
-    conn.exec("TRUNCATE #{@schema_table}")
+  def truncate
+    @conn.exec("TRUNCATE #{@schema_table}")
   end
 
-  def table_exists(conn)
-    query = conn.exec(
+  def table_exists
+    query = @conn.exec(
       "SELECT EXISTS ( \
         SELECT 1 \
         FROM pg_tables \
@@ -54,9 +52,9 @@ class Sync
     query.first['exists'] == 't'
   end
 
-  def build_schema(conn)
-    conn.exec("CREATE SCHEMA IF NOT EXISTS #{@schema}")
-    conn.exec(
+  def build_schema
+    @conn.exec("CREATE SCHEMA IF NOT EXISTS #{@schema}")
+    @conn.exec(
       "CREATE TABLE IF NOT EXISTS #{@schema_table} ( \
         bearden_id integer, \
         email character varying, \
@@ -71,8 +69,8 @@ class Sync
     )
   end
 
-  def copy(conn)
-    conn.exec(
+  def copy
+    @conn.exec(
       "COPY #{@schema_table} \
       (#{columns}) \
       FROM '#{@source}' \
@@ -83,8 +81,8 @@ class Sync
     )
   end
 
-  def errors(conn)
-    results = conn.exec(
+  def errors
+    results = @conn.exec(
       "SELECT line_number, colname, err_reason, \
         raw_field_value, raw_line \
       FROM stl_load_errors errors \
