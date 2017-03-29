@@ -6,6 +6,8 @@ feature 'CSV Import' do
     Fabricate :tag, name: 'modern'
     source = Fabricate :source, name: 'Factual'
 
+    allow(SyncJob).to receive(:perform_later)
+
     visit '/imports/new'
 
     select source.name, from: 'Source'
