@@ -1,5 +1,5 @@
 class RawInputTransformJob < ApplicationJob
-  queue_as :default
+  queue_as :raw_input_transform
 
   def perform(import_id)
     import = Import.find_by id: import_id
