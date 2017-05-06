@@ -5,6 +5,7 @@ class ParseCsvImportJob < ApplicationJob
   queue_as :default
 
   def perform(import_id)
+    @blacklist = []
     @import_id = import_id
     @import = Import.find_by id: @import_id
     @data = fetch_data
@@ -27,7 +28,18 @@ class ParseCsvImportJob < ApplicationJob
 
   def create_raw_inputs
     CSV.parse(@data, headers: true) do |row|
-      RawInput.create data: row.to_h, import_id: @import_id
+      raw_input = RawInput.create data: row.to_h, import_id: @import_id
+      @website = row['website']
+      next unless resolve_website?
+      ResolveWebsiteJob.perform_later(@website, raw_input.id)
+      @blacklist << @website
     end
+  end
+
+  def resolve_website?
+    website_exists = Website.find_by content: @website
+    blacklisted = @blacklist.include?(@website)
+
+    !website_exists && !blacklisted
   end
 end
