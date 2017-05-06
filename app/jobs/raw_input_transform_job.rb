@@ -4,7 +4,7 @@ class RawInputTransformJob < ApplicationJob
   def perform(import_id)
     import = Import.find_by id: import_id
     return unless import
-    raw_input = import.raw_inputs.where(state: nil).order(website: :desc).first
+    raw_input = import.raw_inputs.where(state: nil).order(resolved_website: :desc).first
     import.finalize && return unless raw_input
 
     RawInputChanges.apply raw_input

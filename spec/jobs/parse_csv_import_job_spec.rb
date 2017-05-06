@@ -50,7 +50,8 @@ describe ParseCsvImportJob do
 
       expect(Website.count).to eq 1
       expect(import.raw_inputs.count).to eq 1
-      # expect(import.raw_inputs.first.website).to eq website
+      # TODO this will check that the raw_input resolved website has received a JSON value
+      # expect(import.raw_inputs.first.resolved_website).to eq website
     end
   end
 end
