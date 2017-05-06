@@ -5,7 +5,7 @@ class ParseCsvImportJob < ApplicationJob
   queue_as :default
 
   def perform(import_id)
-    @blacklist = []
+    @blacklist = {}
     @import_id = import_id
     @import = Import.find_by id: @import_id
     @data = fetch_data
@@ -32,14 +32,18 @@ class ParseCsvImportJob < ApplicationJob
       @website = row['website']
       next unless resolve_website?
       ResolveWebsiteJob.perform_later(@website, raw_input.id)
-      @blacklist << @website
+      add_to_blacklist
     end
   end
 
   def resolve_website?
     website_exists = Website.find_by content: @website
-    blacklisted = @blacklist.include?(@website)
+    blacklisted = @blacklist.has_key?(@website)
 
     !website_exists && !blacklisted
+  end
+
+  def add_to_blacklist
+    @blacklist[@website]
   end
 end
